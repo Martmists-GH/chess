@@ -77,7 +77,7 @@ dependencies {
 
 compileKotlin {
     kotlinOptions {
-        jvmTarget = "16"
+        jvmTarget = "11"
     }
 }
 

@@ -71,5 +71,5 @@ class Move(val fromIndex: Int, val toIndex: Int, val isCastle: Boolean = false, 
     }
 }
 
-fun Boolean.int() = if (this) 1 else 0
-fun PieceType.int() = PieceType.values().indexOf(this)
+private fun Boolean.int() = if (this) 1 else 0
+private fun PieceType.int() = PieceType.values().indexOf(this)

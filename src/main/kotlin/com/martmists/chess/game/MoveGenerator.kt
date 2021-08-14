@@ -4,7 +4,7 @@ import java.util.*
 import kotlin.math.abs
 
 object MoveGenerator {
-    private val cache = WeakHashMap<Board, MutableMap<Int, List<Move>>>()
+    private val cache = HashMap<Int, MutableMap<Int, List<Move>>>()
 
     /**
      * Does not detect check or pins
@@ -160,7 +160,7 @@ object MoveGenerator {
      * and discards it if possible
      */
     fun findMovesSmart(board: Board, index: Int) : List<Move> {
-        val cached = cache.getOrPut(board) { WeakHashMap() }?.get(index)
+        val cached = cache.getOrPut(board.hashCode()) { mutableMapOf() }[index]
         if (cached != null) {
             return cached
         }
@@ -196,6 +196,6 @@ object MoveGenerator {
             }
         }
 
-        return filtered.also { cache[board]!![index] = filtered }
+        return filtered.also { cache[board.hashCode()]!![index] = filtered }
     }
 }

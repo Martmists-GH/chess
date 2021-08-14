@@ -10,6 +10,8 @@ import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.glGetInteger
 import org.lwjgl.system.MemoryUtil.NULL
 import java.io.File
+import java.util.concurrent.CompletableFuture
+import kotlin.concurrent.thread
 import kotlin.math.min
 
 
@@ -33,12 +35,16 @@ class UI {
     // Seems to be needed?
     private var fbId = 0
 
-    private var engine: Engine? = MinMaxEngine(5, 20)
+    private var engine: Engine? =
+        // null  // player vs player
+        // RandomMoveEngine()  // Random moves
+        MinMaxEngine(5, 99)  // look 5 moves ahead, always consider all moves (up to 99 different ones), considering up to 5 million possible boards
     private var selectedHover = -1
     private var selectedClicked = -1
     private val playAsWhite = true
     private var waitForEngine = !playAsWhite
     private var promotionIndex = -1
+    private var future: CompletableFuture<Move>? = null
 
     init {
         glfwInit()
@@ -95,9 +101,8 @@ class UI {
 
             if (waitForEngine) {
                 doEngineMove()
-            } else {
-                glfwPollEvents()
             }
+            glfwPollEvents()
         }
 
         surface.close()
@@ -152,6 +157,8 @@ class UI {
 
             surface.canvas.drawRect(Rect(column * squareSize, row * squareSize, (column + 1) * squareSize, (row + 1) * squareSize), paint)
         }
+
+        // TODO: Draw promotion overlay
 
         paint.close()
 
@@ -209,6 +216,8 @@ class UI {
 
     private fun drawBoard() {
         val paint = Paint().setColor(0xFFEEEED2.toInt())
+        val paint2 = Paint().setColor(0xFFF6F669.toInt())
+        val paint3 = Paint().setColor(0xFFBACA2B.toInt())
 
         val lowest = min(width, height).toFloat()
         val squareSize = (lowest / 8)
@@ -222,7 +231,27 @@ class UI {
             }
         }
 
+        if (board.lastMove.fromIndex != -1) {
+            for (x in listOf(board.lastMove.fromIndex, board.lastMove.toIndex)) {
+                var column = x % 10 - 1
+                var row = x / 10 - 2
+
+                if (playAsWhite) {
+                    column = 7 - column
+                    row = 7 - row
+                }
+
+                if (row % 2 == column % 2) {
+                    surface.canvas.drawRect(Rect(column * squareSize, row * squareSize, (column + 1) * squareSize, (row + 1) * squareSize), paint2)
+                } else {
+                    surface.canvas.drawRect(Rect(column * squareSize, row * squareSize, (column + 1) * squareSize, (row + 1) * squareSize), paint3)
+                }
+            }
+        }
+
         paint.close()
+        paint2.close()
+        paint3.close()
     }
 
     private fun onResize(width: Int, height: Int) {
@@ -252,20 +281,18 @@ class UI {
 
         this.width = width
         this.height = height
-
-        val lowest = min(width, height)
     }
 
     private fun onClick(button: Int, action: Int, mods: Int) {
         if (action == 0) {  // unpress
-            if (button == GLFW_MOUSE_BUTTON_LEFT && !board.gameEnded) {
+            if (button == GLFW_MOUSE_BUTTON_LEFT && !board.gameEnded && !waitForEngine) {
                 if (promotionIndex != -1) {
                     // check overlay
                     val type = when (selectedHover) {
-                        28 -> PieceType.BISHOP
-                        29 -> PieceType.KNIGHT
-                        36 -> PieceType.ROOK
-                        37 -> PieceType.QUEEN
+                        27 -> PieceType.BISHOP
+                        28 -> PieceType.KNIGHT
+                        35 -> PieceType.ROOK
+                        36 -> PieceType.QUEEN
                         else -> return
                     }
 
@@ -332,7 +359,6 @@ class UI {
 
                     val moves = MoveGenerator.findMovesSmart(board, boardIndex).filter { it.toIndex == boardIndexHover }
 
-                    // TODO: Promotion
                     if (moves.size > 1) {
                         // promotion
                         promotionIndex = boardIndex
@@ -366,15 +392,29 @@ class UI {
         }
     }
 
-    fun doEngineMove() {
-        val move = engine!!.genMove(board)
-        print(move.notation(board) + " ")
-        board = board.move(move)
-        board.checkState()
-        waitForEngine = false
+    private fun doEngineMove() {
+        if (future == null) {
+            val fut = CompletableFuture<Move>()
+            future = fut
+
+            fut.thenAccept { move ->
+                print(move.notation(board) + " ")
+                board = board.move(move)
+                board.checkState()
+                waitForEngine = false
+                future = null
+            }
+
+            // Don't hang main thread
+            thread(start = true, name = "Engine Thread", isDaemon = true) {
+                val move = engine!!.genMove(board)
+                fut.complete(move)
+            }
+        }
+
     }
 
-    fun resetBoard() {
+    private fun resetBoard() {
         board = Board.standard()
         if (engine != null) {
             waitForEngine = !playAsWhite
@@ -385,7 +425,7 @@ class UI {
 
     }
 
-    fun checkGameEndReason() {
+    private fun checkGameEndReason() {
         if (MoveGenerator.isMate(board)) {
             println("\n${if (board.whiteToMove) "Black" else "White"} won by checkmate")
         } else if (MoveGenerator.isStalemate(board)) {

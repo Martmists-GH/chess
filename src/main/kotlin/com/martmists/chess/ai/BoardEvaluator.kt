@@ -6,10 +6,14 @@ import com.martmists.chess.game.MoveGenerator
 import com.martmists.chess.game.PieceType
 
 object BoardEvaluator {
+    private val cache = HashMap<Int, Float>()
+
     fun score(board: Board) : Float {
-        val whitePieces = board.getPieces(true)
-        val blackPieces = board.getPieces(false)
-        return pieces(board, whitePieces, blackPieces) - pawns(board, whitePieces, blackPieces) + mobility(board, whitePieces, blackPieces)
+        return cache.getOrPut(board.hashCode()) {
+            val whitePieces = board.getPieces(true)
+            val blackPieces = board.getPieces(false)
+            pieces(board, whitePieces, blackPieces) - pawns(board, whitePieces, blackPieces) + mobility(board, whitePieces, blackPieces)
+        }
     }
 
     private fun mobility(board: Board, whitePieces: List<Int>, blackPieces: List<Int>) : Float {
@@ -56,8 +60,23 @@ object BoardEvaluator {
     }
 
     private fun isolated(board: Board, whitePawns: List<Int>, blackPawns: List<Int>) : Int {
-        // TODO
-        return 0
+        var wi = 0
+        var bi = 0
+
+        for (x in 1..8) {
+            val wp = whitePawns.filter { it % 10 == x }.size
+            val wa = whitePawns.filter { it % 10 == x-1 || it % 10 == x+1 }.size
+            val bp = blackPawns.filter { it == x }.size
+            val ba = blackPawns.filter { it == x }.size
+
+            if (wa == 0 && wp != 0) {
+                wi += wp
+            }
+            if (ba == 0 && bp != 0) {
+                bi += bp
+            }
+        }
+        return wi - bi
     }
 
     /**

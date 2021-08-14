@@ -15,6 +15,11 @@ class Board {
         }
     }
 
+    override fun hashCode(): Int {
+        return whiteToMove.int() + 2*gameEnded.int() + 4 * lastMove.hashCode() + 320000 * pieces.subList(20, 100).map { it.hashCode() }.toList().toString().hashCode()
+    }
+
+    private val boardCache = HashMap<Int, Board>()
     private val moveCache = HashMap<Int, Board>()
 
     fun move(mv: Move) : Board {
@@ -29,12 +34,14 @@ class Board {
 
         if (mv.fromIndex == -1) {
             // Do nothing
-            return copy().also {
+            val board = copy().also {
                 it.whiteToMove = !whiteToMove
             }
+
+            return boardCache.getOrPut(board.hashCode()) { board }
         }
 
-        return copy().apply {
+        val board = copy().apply {
             whiteToMove = !this@Board.whiteToMove
 
             val piece = pieces[mv.fromIndex]
@@ -79,6 +86,8 @@ class Board {
 
             this@Board.moveCache[mv.hashCode()] = this
         }
+
+        return boardCache.getOrPut(board.hashCode()) { board }
     }
 
     fun checkState() {
@@ -90,8 +99,11 @@ class Board {
             // check for insufficient material
             val whitePieces = getPieces(true)
             val blackPieces = getPieces(false)
-            if (whitePieces.count { pieces[it].type == PieceType.KNIGHT || pieces[it].type == PieceType.BISHOP } <= 1 && whitePieces.count() <= 2 &&
-                blackPieces.count { pieces[it].type == PieceType.KNIGHT || pieces[it].type == PieceType.BISHOP } <= 1 && blackPieces.count() <= 2
+            if (
+                whitePieces.count { pieces[it].type == PieceType.KNIGHT || pieces[it].type == PieceType.BISHOP } <= 1 &&
+                whitePieces.count { pieces[it].type != PieceType.KNIGHT && pieces[it].type != PieceType.BISHOP } == 1 &&
+                blackPieces.count { pieces[it].type == PieceType.KNIGHT || pieces[it].type == PieceType.BISHOP } <= 1 &&
+                blackPieces.count { pieces[it].type != PieceType.KNIGHT && pieces[it].type != PieceType.BISHOP } == 1
             ) {
                 gameEnded = true
             }
@@ -136,3 +148,5 @@ class Board {
         }
     }
 }
+
+private fun Boolean.int() = if (this) 1 else 0
