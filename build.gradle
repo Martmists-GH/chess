@@ -1,0 +1,98 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.gradle.internal.os.OperatingSystem
+
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "$kotlin_version"
+    id "com.github.johnrengelman.shadow" version "$shadow_version"
+}
+
+group = "com.martmists.hackgame"
+version = project.app_version
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "Brigadier"
+        url = "https://libraries.minecraft.net"
+    }
+    maven {
+        name = "Skija"
+        url = "https://packages.jetbrains.team/maven/p/skija/maven"
+    }
+}
+
+def target = OperatingSystem.current()
+def configTarget = System.getProperty("target")
+switch (configTarget) {
+    case "linux":
+        target = OperatingSystem.LINUX
+        break
+    case "macos":
+        target = OperatingSystem.MAC_OS
+        break
+    case "windows":
+        target = OperatingSystem.WINDOWS
+        break
+}
+
+switch (target) {
+    case OperatingSystem.LINUX:
+        def osArch = System.getProperty("os.arch")
+        project.ext.lwjgl_natives = osArch.startsWith("arm") || osArch.startsWith("aarch64")
+                ? "natives-linux-${osArch.contains("64") || osArch.startsWith("armv8") ? "arm64" : "arm32"}"
+                : "natives-linux"
+        project.ext.skija_platform = "linux"
+        project.version += "-linux"
+        break
+    case OperatingSystem.MAC_OS:
+        project.ext.lwjgl_natives = "natives-macos"
+        project.ext.skija_platform = "macos-x64"
+        project.version += "-macos"
+        break
+    case OperatingSystem.WINDOWS:
+        def osArch = System.getProperty("os.arch")
+        project.ext.lwjgl_natives = osArch.contains("64")
+                ? "natives-windows${osArch.startsWith("aarch64") ? "-arm64" : ""}"
+                : "natives-windows-x86"
+        project.ext.skija_platform = "windows"
+        project.version += "-windows"
+        break
+}
+
+configurations {
+    implementation.extendsFrom shadow
+}
+
+dependencies {
+    // Kotlin
+    shadow "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+
+    // Rendering
+    for (module in ["lwjgl", "lwjgl-assimp", "lwjgl-glfw", "lwjgl-openal", "lwjgl-opengl", "lwjgl-stb"]) {
+        shadow "org.lwjgl:$module:$lwjgl_version"
+        shadow "org.lwjgl:$module:$lwjgl_version:$lwjgl_natives"
+    }
+    shadow "org.jetbrains.skija:skija-$skija_platform:$skija_version"
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "16"
+    }
+}
+
+
+jar {
+    enabled = false
+}
+
+shadowJar {
+    classifier ""
+    configurations = [project.configurations.shadow]
+    manifest.attributes(
+            "Multi-Release" : true,
+            'Main-Class' : 'com.martmists.chess.Main',
+    )
+}
+
+build.dependsOn(shadowJar)
