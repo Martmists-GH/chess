@@ -84,4 +84,8 @@ class MinMaxEngine(private val depth: Int) : Engine {
             }
         }
     }
+
+    override fun reset() {
+
+    }
 }

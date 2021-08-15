@@ -18,7 +18,11 @@ class Board {
     }
 
     override fun hashCode(): Int {
-        return whiteToMove.int() + 2*gameEnded.int() + 4 * lastMove.hashCode() + 320000 * pieces.subList(20, 100).map { it.hashCode() }.toList().toString().hashCode()
+        return whiteToMove.int() +
+                2*gameEnded.int() +
+                // Account for en passant vs not en passant
+                4 * (if (lastMove.fromIndex != -1 && pieces[lastMove.toIndex].type == PieceType.PAWN) lastMove.hashCode() else 0) +
+                320000 * pieces.subList(20, 100).map { it.hashCode() }.hashCode()
     }
 
     fun move(mv: Move) : Board {

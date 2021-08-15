@@ -7,20 +7,14 @@ import com.martmists.chess.game.PieceType
 
 object BoardEvaluator {
     private val cache = HashMap<Int, Float>()
-    val SCORE_MATE_MIN = 1000f
-    val SCORE_MATE = 1337f
 
     fun score(board: Board) : Float {
         return cache.getOrPut(board.hashCode()) {
-            if (MoveGenerator.isStalemate(board)) {
-                0f
-            } else {
-                val whitePieces = board.getPieces(true)
-                val blackPieces = board.getPieces(false)
-                pieces(board, whitePieces, blackPieces) -
-                    pawns(board, whitePieces, blackPieces) +
-                    mobility(board, whitePieces, blackPieces)
-            }
+            val whitePieces = board.getPieces(true)
+            val blackPieces = board.getPieces(false)
+            pieces(board, whitePieces, blackPieces) -
+                pawns(board, whitePieces, blackPieces) +
+                mobility(board, whitePieces, blackPieces)
         }
     }
 

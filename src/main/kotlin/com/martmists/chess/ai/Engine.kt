@@ -5,4 +5,5 @@ import com.martmists.chess.game.Move
 
 interface Engine {
     fun genMove(board: Board) : Move
+    fun reset()
 }

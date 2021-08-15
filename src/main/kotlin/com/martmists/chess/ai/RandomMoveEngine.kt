@@ -8,4 +8,8 @@ class RandomMoveEngine : Engine {
     override fun genMove(board: Board): Move {
         return board.getPieces(board.whiteToMove).map { MoveGenerator.findMovesSmart(board, it) }.flatten().random()
     }
+
+    override fun reset() {
+
+    }
 }

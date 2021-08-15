@@ -36,14 +36,14 @@ class UI {
     private var fbId = 0
 
     private var engine: Engine? =
-        // null  // player vs player
-        // RandomMoveEngine()  // Random moves
-        MinMaxEngine(6)  // look 6 moves ahead
+         null  // player vs player
+//         RandomMoveEngine()  // Random moves
+//         MinMaxEngine(3)  // look 6 moves ahead
     private var selectedHover = -1
     private var selectedClicked = -1
     private val playAsWhite = true
     private var waitForEngine = !playAsWhite
-    private var promotionIndex = -1
+    private var promotionMove = Move(-1, -1)
     private var future: CompletableFuture<Move>? = null
 
     init {
@@ -158,10 +158,50 @@ class UI {
             surface.canvas.drawRect(Rect(column * squareSize, row * squareSize, (column + 1) * squareSize, (row + 1) * squareSize), paint)
         }
 
-        // TODO: Draw promotion overlay
-
         paint.close()
 
+        val overlayPaint = Paint().setColor(0xEE333333.toInt())
+
+        if (promotionMove.fromIndex != -1) {
+            surface.canvas.drawRect(Rect(2.5f * squareSize, 2.5f * squareSize, 5.5f * squareSize, 5.5f * squareSize), overlayPaint)
+
+            for ((index, piece) in listOf(
+                Pair(27, PieceType.BISHOP),
+                Pair(28, PieceType.KNIGHT),
+                Pair(35, PieceType.ROOK),
+                Pair(36, PieceType.QUEEN),
+            )) {
+                val filename = (if (promotionMove.fromIndex > 60) "white_" else "black_") + when (piece) {
+                    PieceType.KNIGHT -> "knight"
+                    PieceType.QUEEN -> "queen"
+                    PieceType.BISHOP -> "bishop"
+                    PieceType.ROOK -> "rook"
+                    else -> throw IllegalStateException()
+                }
+
+                val svg = this::class.java.classLoader.getResource("$filename.svg")!!.toURI()
+                val f = File(svg)
+                val bytes = f.readBytes()
+                val svgData = Data.makeFromBytes(bytes)
+                val root = SVGDOM(svgData)
+
+                val column = index % 8
+                val row = index / 8
+
+                surface.canvas.save()
+                surface.canvas.translate(squareSize * column, squareSize * row)
+                surface.canvas.scale(squareSize/45f, squareSize / 45f)
+
+                root.render(surface.canvas)
+
+                surface.canvas.restore()
+
+                svgData.close()
+                root.close()
+            }
+        }
+
+        overlayPaint.close()
     }
 
     private fun drawPieces() {
@@ -286,7 +326,7 @@ class UI {
     private fun onClick(button: Int, action: Int, mods: Int) {
         if (action == 0) {  // unpress
             if (button == GLFW_MOUSE_BUTTON_LEFT && !board.gameEnded && !waitForEngine) {
-                if (promotionIndex != -1) {
+                if (promotionMove.fromIndex != -1) {
                     // check overlay
                     val type = when (selectedHover) {
                         27 -> PieceType.BISHOP
@@ -296,25 +336,23 @@ class UI {
                         else -> return
                     }
 
-                    val selected = Move(promotionIndex, promotionIndex + if (board.whiteToMove) 10 else -10, promoteTo = type)
+                    val selected = Move(promotionMove.fromIndex, promotionMove.toIndex, promoteTo = type)
 
                     // if promition done:
-                    promotionIndex = -1
+                    promotionMove = Move(-1, -1)
 
-                    selected.let {
-                        print(it.notation(board) + " ")
-                        board = board.move(it)
-                        board.checkState()
+                    print(selected.notation(board) + " ")
+                    board = board.move(selected)
+                    board.checkState()
 
-                        if (!board.gameEnded) {
-                            if (engine != null) {
-                                waitForEngine = true
-                            }
+                    if (!board.gameEnded) {
+                        if (engine != null) {
+                            waitForEngine = true
                         }
+                    }
 
-                        if (board.gameEnded) {
-                            checkGameEndReason()
-                        }
+                    if (board.gameEnded) {
+                        checkGameEndReason()
                     }
 
                     return
@@ -361,7 +399,7 @@ class UI {
 
                     if (moves.size > 1) {
                         // promotion
-                        promotionIndex = boardIndex
+                        promotionMove = moves.first()
                         selectedClicked = -1
                         return
                     }
@@ -409,7 +447,6 @@ class UI {
             thread(start = true, name = "Engine Thread", isDaemon = true) {
                 val move = engine!!.genMove(board)
                 fut.complete(move)
-                println("Found move!")
             }
         }
 
@@ -418,6 +455,8 @@ class UI {
     private fun resetBoard() {
         board = Board.standard()
         if (engine != null) {
+            future?.cancel(true)
+
             waitForEngine = !playAsWhite
             if (!playAsWhite && engine != null) {
                 engine!!.genMove(board)
