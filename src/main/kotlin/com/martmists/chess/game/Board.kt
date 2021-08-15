@@ -111,6 +111,7 @@ class Board {
             pieces.forEachIndexed { index, piece ->
                 it.pieces[index].from(piece)
             }
+            it.lastMove = lastMove
         }
     }
 

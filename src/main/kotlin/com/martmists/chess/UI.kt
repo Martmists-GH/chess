@@ -36,9 +36,9 @@ class UI {
     private var fbId = 0
 
     private var engine: Engine? =
-         null  // player vs player
+//         null  // player vs player
 //         RandomMoveEngine()  // Random moves
-//         MinMaxEngine(3)  // look 6 moves ahead
+         MinMaxEngine(6)  // look 6 moves ahead
     private var selectedHover = -1
     private var selectedClicked = -1
     private val playAsWhite = true

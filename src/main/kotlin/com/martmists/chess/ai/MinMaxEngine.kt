@@ -37,10 +37,8 @@ class MinMaxEngine(private val depth: Int) : Engine {
     // Alpha-Beta pruning
     private fun alphabeta(board: Board, currentDepth: Int, _alpha: Float, _beta: Float) : Float {
         return cache.getOrPut(board.hashCode()) {
-            val currentScore = BoardEvaluator.score(board)
-
             if (currentDepth == 0) {
-                currentScore
+                BoardEvaluator.score(board)
             } else {
 
                 var alpha = _alpha
@@ -52,10 +50,6 @@ class MinMaxEngine(private val depth: Int) : Engine {
                     var value = Float.NEGATIVE_INFINITY
                     for (move in moves) {
                         val nextBoard = board.move(move)
-
-                        if (currentScore - BoardEvaluator.score(nextBoard) > nullCutoff) {
-                            continue
-                        }
 
                         value = max(value, alphabeta(nextBoard, currentDepth - 1, alpha, beta))
                         if (value >= beta) {
@@ -69,11 +63,7 @@ class MinMaxEngine(private val depth: Int) : Engine {
                     for (move in moves) {
                         val nextBoard = board.move(move)
 
-                        if (currentScore - BoardEvaluator.score(nextBoard) < -nullCutoff) {
-                            continue
-                        }
-
-                        value = min(value, alphabeta(board.move(move), currentDepth - 1, alpha, beta))
+                        value = min(value, alphabeta(nextBoard, currentDepth - 1, alpha, beta))
                         if (value <= alpha) {
                             break
                         }
