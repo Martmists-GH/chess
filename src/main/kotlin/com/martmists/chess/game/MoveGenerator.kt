@@ -1,10 +1,11 @@
 package com.martmists.chess.game
 
+import com.martmists.chess.utilities.LruCache
 import java.util.*
 import kotlin.math.abs
 
 object MoveGenerator {
-    private val cache = HashMap<Int, MutableMap<Int, List<Move>>>()
+    private val cache = LruCache<Int, MutableMap<Int, List<Move>>>(300)
 
     /**
      * Does not detect check or pins

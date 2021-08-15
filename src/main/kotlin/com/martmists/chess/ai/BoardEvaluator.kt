@@ -7,12 +7,20 @@ import com.martmists.chess.game.PieceType
 
 object BoardEvaluator {
     private val cache = HashMap<Int, Float>()
+    val SCORE_MATE_MIN = 1000f
+    val SCORE_MATE = 1337f
 
     fun score(board: Board) : Float {
         return cache.getOrPut(board.hashCode()) {
-            val whitePieces = board.getPieces(true)
-            val blackPieces = board.getPieces(false)
-            pieces(board, whitePieces, blackPieces) - pawns(board, whitePieces, blackPieces) + mobility(board, whitePieces, blackPieces)
+            if (MoveGenerator.isStalemate(board)) {
+                0f
+            } else {
+                val whitePieces = board.getPieces(true)
+                val blackPieces = board.getPieces(false)
+                pieces(board, whitePieces, blackPieces) -
+                    pawns(board, whitePieces, blackPieces) +
+                    mobility(board, whitePieces, blackPieces)
+            }
         }
     }
 
@@ -82,20 +90,21 @@ object BoardEvaluator {
     /**
      * Just count piece advantage
      */
-    private fun pieces(board: Board, whitePieces: List<Int>, blackPieces: List<Int>) : Int {
-        val white = whitePieces.sumOf { value(board, it) }
-        val black = blackPieces.sumOf { value(board, it) }
-        return white - black
+    private fun pieces(board: Board, whitePieces: List<Int>, blackPieces: List<Int>) : Float {
+        val white = whitePieces.sumOf { value(board, it).toBigDecimal() }
+        val black = blackPieces.sumOf { value(board, it).toBigDecimal() }
+        return (white - black).toFloat()
     }
 
-    private fun value(board: Board, index: Int, ignoreKings: Boolean = false) : Int {
+    private fun value(board: Board, index: Int, ignoreKings: Boolean = false) : Float {
         return when (board.pieces[index].type) {
-            PieceType.PAWN -> 1
-            PieceType.BISHOP, PieceType.KNIGHT -> 3
-            PieceType.ROOK -> 5
-            PieceType.QUEEN -> 9
-            PieceType.KING -> if (ignoreKings) 0 else 200
-            else -> 0
+            PieceType.PAWN -> 1f
+            PieceType.BISHOP -> 3.3f
+            PieceType.KNIGHT -> 3.2f
+            PieceType.ROOK -> 5f
+            PieceType.QUEEN -> 9f
+            PieceType.KING -> if (ignoreKings) 0f else 200f
+            else -> 0f
         }
     }
 }

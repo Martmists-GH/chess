@@ -3,74 +3,85 @@ package com.martmists.chess.ai
 import com.martmists.chess.game.Board
 import com.martmists.chess.game.Move
 import com.martmists.chess.game.MoveGenerator
+import com.martmists.chess.utilities.LruCache
+import kotlin.math.max
+import kotlin.math.min
 
-class MinMaxEngine(private val depth: Int, private val lines: Int) : Engine {
-    class Node(val move: Move, var score: Float) {
-        var children = mutableListOf<Node>()
-
-        fun getScore(white: Boolean) : Float {
-            if (children.isEmpty()) {
-                return score
-            }
-
-            val scores = children.map { it.getScore(!white) }
-
-            return if (white) {
-                // min
-                scores.minOrNull()!!
-            } else {
-                // max
-                scores.maxOrNull()!!
-            }
-        }
-    }
+class MinMaxEngine(private val depth: Int) : Engine {
+    private val nullCutoff = 2.3f
 
     init {
-        println("MinMax engine\nDepth $depth, Lines $lines")
+        println("MinMax engine\nDepth $depth")
         println("Expect loads of lag.")
     }
 
     override fun genMove(board: Board): Move {
-        // TODO: Intelligent move culling
-        // TODO: Draw detection
-        val tree = Node(Move(-1, -1), 0f)
-        bestMove(board, depth, tree)
-        val moves = tree.children.sortedBy { it.score }
+        val moves = board.getPieces(board.whiteToMove).map { MoveGenerator.findMovesSmart(board, it) }.flatten()
+
+        // generate now, not later
+        val values = moves.associateWith {
+            alphabeta(board.move(it), depth-1, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY)
+        }
+
+        val sorted = moves.sortedBy { values[it]!! }
+
         return if (board.whiteToMove) {
-            moves.last().move
+            sorted.last()
         } else {
-            moves.first().move
+            sorted.first()
         }
     }
 
-    private fun bestMove(board: Board, currentDepth: Int, node: Node) {
-        val moves = board.getPieces(board.whiteToMove).map { MoveGenerator.findMovesSmart(board, it) }.flatten().shuffled()
+    private val cache = LruCache<Int, Float>(500)
 
-        moves.sortedBy {
-            BoardEvaluator.score(board.move(it))
-        }.subList((moves.size - lines).coerceAtLeast(0), moves.size).forEach {
-            val new = Node(it, 0f)
-            val newBoard = board.move(it)
+    // Alpha-Beta pruning
+    private fun alphabeta(board: Board, currentDepth: Int, _alpha: Float, _beta: Float) : Float {
+        return cache.getOrPut(board.hashCode()) {
+            val currentScore = BoardEvaluator.score(board)
 
-            if (currentDepth == 1) {
-                // Raw numbers
-                new.score = BoardEvaluator.score(newBoard)
+            if (currentDepth == 0) {
+                currentScore
             } else {
-                // handle children
-                bestMove(newBoard, currentDepth - 1, new)
-                new.score = new.getScore(board.whiteToMove)
+
+                var alpha = _alpha
+                var beta = _beta
+
+                val moves = board.getPieces(board.whiteToMove).map { MoveGenerator.findMovesSmart(board, it) }.flatten().shuffled()
+
+                if (board.whiteToMove) {
+                    var value = Float.NEGATIVE_INFINITY
+                    for (move in moves) {
+                        val nextBoard = board.move(move)
+
+                        if (currentScore - BoardEvaluator.score(nextBoard) > nullCutoff) {
+                            continue
+                        }
+
+                        value = max(value, alphabeta(nextBoard, currentDepth - 1, alpha, beta))
+                        if (value >= beta) {
+                            break
+                        }
+                        alpha = max(alpha, value)
+                    }
+                    value
+                } else {
+                    var value = Float.POSITIVE_INFINITY
+                    for (move in moves) {
+                        val nextBoard = board.move(move)
+
+                        if (currentScore - BoardEvaluator.score(nextBoard) < -nullCutoff) {
+                            continue
+                        }
+
+                        value = min(value, alphabeta(board.move(move), currentDepth - 1, alpha, beta))
+                        if (value <= alpha) {
+                            break
+                        }
+                        beta = min(beta, value)
+                    }
+                    value
+                }
             }
-
-            node.children.add(new)
-        }
-    }
-
-    private fun bestMoveScore(board: Board, moves: List<Move>, white: Boolean) : Move {
-        val ordered = moves.sortedBy { BoardEvaluator.score(board.move(it)) }
-        return if (white) {
-            ordered.last()
-        } else {
-            ordered.first()
         }
     }
 }

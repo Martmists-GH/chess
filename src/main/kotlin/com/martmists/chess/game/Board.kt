@@ -1,5 +1,7 @@
 package com.martmists.chess.game
 
+import com.martmists.chess.utilities.LruCache
+
 class Board {
     // 10x12 strategy
     val pieces = List(120) { Piece() }
@@ -19,17 +21,9 @@ class Board {
         return whiteToMove.int() + 2*gameEnded.int() + 4 * lastMove.hashCode() + 320000 * pieces.subList(20, 100).map { it.hashCode() }.toList().toString().hashCode()
     }
 
-    private val boardCache = HashMap<Int, Board>()
-    private val moveCache = HashMap<Int, Board>()
-
     fun move(mv: Move) : Board {
         if (gameEnded) {
             return this
-        }
-
-        val cached = moveCache[mv.hashCode()]
-        if (cached != null) {
-            return cached
         }
 
         if (mv.fromIndex == -1) {
@@ -83,8 +77,6 @@ class Board {
             }
 
             lastMove = mv
-
-            this@Board.moveCache[mv.hashCode()] = this
         }
 
         return boardCache.getOrPut(board.hashCode()) { board }
@@ -146,6 +138,8 @@ class Board {
                 }
             }
         }
+
+        private val boardCache = LruCache<Int, Board>(200)
     }
 }
 

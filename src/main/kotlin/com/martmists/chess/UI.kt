@@ -38,7 +38,7 @@ class UI {
     private var engine: Engine? =
         // null  // player vs player
         // RandomMoveEngine()  // Random moves
-        MinMaxEngine(5, 99)  // look 5 moves ahead, always consider all moves (up to 99 different ones), considering up to 5 million possible boards
+        MinMaxEngine(6)  // look 6 moves ahead
     private var selectedHover = -1
     private var selectedClicked = -1
     private val playAsWhite = true
@@ -409,6 +409,7 @@ class UI {
             thread(start = true, name = "Engine Thread", isDaemon = true) {
                 val move = engine!!.genMove(board)
                 fut.complete(move)
+                println("Found move!")
             }
         }
 
